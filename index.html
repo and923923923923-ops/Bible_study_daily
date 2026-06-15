@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>雙語聖經工具（修正版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #e2d4c0;
+            font-family: 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif;
+            padding: 16px;
+            color: #3e2a1f;
+        }
+        .app-container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #fffaf2;
+            border-radius: 40px;
+            box-shadow: 0 20px 35px -10px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(145deg, #dbbd92, #c4a16a);
+            padding: 1.5rem;
+            color: #2d241a;
+        }
+        .card {
+            background: #fff7ed;
+            margin: 16px 18px;
+            border-radius: 28px;
+            padding: 1.2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .control-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #8b6b42;
+        }
+        select, input, button, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 40px;
+            border: 1px solid #eddbbc;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        button {
+            background: #ecdbba;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 2px 0 #b2916a;
+            border: none;
+            transition: 0.05s linear;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 0 0 #b2916a; }
+        button.primary { background: #cbaa7a; color: #2a241e; }
+        .verse-card {
+            background: #fffaf0;
+            border-left: 6px solid #e2bc7c;
+            padding: 0.7rem 1rem;
+            margin-bottom: 0.8rem;
+            border-radius: 20px;
+        }
+        .verse-ref { font-weight: 800; color: #ac7c42; font-size: 0.8rem; }
+        .verse-text { font-size: 0.95rem; line-height: 1.45; }
+        .english-text { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eddbbc; font-size: 0.85rem; color: #5e4b32; }
+        .chapter-title { font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0 1rem; color: #9b6e3e; border-left: 5px solid #e7bc7e; padding-left: 16px; }
+        .error-msg { background: #ffe0e0; color: #b00020; padding: 8px 12px; border-radius: 24px; font-size: 0.8rem; margin: 8px 0; }
+        .success-msg { background: #e0f0e0; color: #2a6b2a; padding: 8px 12px; border-radius: 24px; }
+        .api-status { font-size: 0.7rem; margin-top: 6px; color: #a07342; }
+        footer { text-align: center; font-size: 0.7rem; padding: 1rem; color: #9c855f; background: #f9efdf; }
+        @media (max-width: 600px) { .card { margin: 12px; } }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>📖 雙語聖經工具 <small>修正版</small></h1>
+        <p>中文和合本 + 英文 API.Bible</p>
+    </div>
+
+    <div class="card">
+        <div id="bibleStatus" class="success-msg">⏳ 正在載入中文聖經資料 (bibleText.js)...</div>
+        <div class="control-group">
+            <label>📜 中文書卷</label>
+            <select id="bookSelect"></select>
+        </div>
+        <div class="control-group">
+            <label>📖 章節</label>
+            <select id="chapterSelect"></select>
+            <button id="loadChapterBtn" class="primary" style="margin-top: 8px;">📄 讀取章節（中＋英）</button>
+        </div>
+        <div class="control-group">
+            <label>🔍 搜尋中文經文</label>
+            <input type="text" id="searchInput" placeholder="例如：愛、信心">
+            <button id="searchBtn">🔎 搜尋</button>
+        </div>
+        <div class="control-group">
+            <label>✨ 隨機金句（中文）</label>
+            <button id="randomBtn">🎲 隨機一節</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="control-group">
+            <label>🌐 英文聖經 API.Bible 設定</label>
+            <input type="password" id="bibleApiKey" placeholder="請輸入 API.Bible 金鑰">
+            <button id="saveBibleApiKeyBtn">💾 儲存 Key</button>
+            <button id="testApiBtn" style="margin-top: 6px; background:#d9c7a7;">🔍 測試 API 連線</button>
+            <div class="api-status" id="bibleApiStatus"></div>
+        </div>
+        <div class="control-group">
+            <label>📙 英文譯本 (Bible ID)</label>
+            <select id="englishVersionSelect">
+                <option value="de4e12af7f28f599-02">King James Version (KJV)</option>
+                <option value="9879dbb7cfe39e4d-01">English Standard Version (ESV)</option>
+                <option value="714aadc2f4b93bda-01">New International Version (NIV)</option>
+                <option value="030be16accc37929-01">World English Bible (WEB)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>🔘 顯示模式</label>
+            <select id="displayMode">
+                <option value="both">中＋英文對照</option>
+                <option value="chinese">僅中文</option>
+                <option value="english">僅英文</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card" id="displayArea">
+        <div class="chapter-title" id="chapterTitle">📖 請選擇書卷與章節</div>
+        <div id="versesContainer"></div>
+    </div>
+
+    <div class="card">
+        <label>📝 筆記（目前章節）</label>
+        <textarea id="noteText" rows="2" placeholder="寫下讀經心得..."></textarea>
+        <button id="saveNoteBtn">💾 儲存筆記</button>
+        <div id="notesList"></div>
+    </div>
+
+    <div class="card">
+        <div class="control-group">
+            <label>🤖 DeepSeek API Key (選用)</label>
+            <input type="password" id="deepseekApiKey" placeholder="sk-...">
+            <button id="saveDeepSeekKeyBtn">💾 儲存</button>
+        </div>
+        <div class="control-group">
+            <input type="text" id="aiQuestion" placeholder="輸入聖經問題">
+            <button id="askAiBtn" class="primary">💬 詢問 AI</button>
+        </div>
+        <div id="aiAnswer" style="background:#fff5e6; border-radius:24px; padding:12px; margin-top:12px; display:none;"></div>
+    </div>
+    <footer>※ 若書卷選單空白，請確認 bibleText.js 存在且格式正確；API 錯誤會顯示詳細訊息。</footer>
+</div>
+
+<script>
+    // ======================== 全域變數 ========================
+    let bibleArray = [];            // 原始經文字串
+    let parsedVerses = [];         // 中文章節物件
+    let booksMap = new Map();
+    let bookChaptersMap = new Map();
+    let currentBook = '', currentChapter = 1;
+
+    // 英文設定
+    let bibleApiKey = localStorage.getItem('bible_api_key') || '';
+    let selectedBibleId = localStorage.getItem('selected_bible_id') || 'de4e12af7f28f599-02';
+    let displayMode = localStorage.getItem('display_mode') || 'both';
+
+    let deepseekApiKey = localStorage.getItem('deepseek_api_key') || '';
+
+    // 聖經正典順序 (用於下拉選單)
+    const canonicalOrder = [
+        '創','出','利','民','申','書','士','得','撒上','撒下','王上','王下','代上','代下','拉','尼','斯',
+        '伯','詩','箴','傳','歌','賽','耶','哀','結','但',
+        '何','珥','摩','俄','拿','彌','鴻','哈','番','該','亞','瑪',
+        '太','可','路','約','徒','羅','林前','林後','加','弗','腓','西','帖前','帖後','提前','提後','多','門',
+        '來','雅','彼前','彼後','約一','約二','約三','猶','啟'
+    ];
+    const fullNameMap = {
+        '創':'創世記','出':'出埃及記','利':'利未記','民':'民數記','申':'申命記',
+        '書':'約書亞記','士':'士師記','得':'路得記','撒上':'撒母耳記上','撒下':'撒母耳記下',
+        '王上':'列王紀上','王下':'列王紀下','代上':'歷代志上','代下':'歷代志下',
+        '拉':'以斯拉記','尼':'尼希米記','斯':'以斯帖記','伯':'約伯記','詩':'詩篇',
+        '箴':'箴言','傳':'傳道書','歌':'雅歌','賽':'以賽亞書','耶':'耶利米書',
+        '哀':'耶利米哀歌','結':'以西結書','但':'但以理書','何':'何西阿書','珥':'約珥書',
+        '摩':'阿摩司書','俄':'俄巴底亞書','拿':'約拿書','彌':'彌迦書','鴻':'那鴻書',
+        '哈':'哈巴谷書','番':'西番雅書','該':'哈該書','亞':'撒迦利亞書','瑪':'瑪拉基書',
+        '太':'馬太福音','可':'馬可福音','路':'路加福音','約':'約翰福音','徒':'使徒行傳',
+        '羅':'羅馬書','林前':'哥林多前書','林後':'哥林多後書','加':'加拉太書','弗':'以弗所書',
+        '腓':'腓立比書','西':'歌羅西書','帖前':'帖撒羅尼迦前書','帖後':'帖撒羅尼迦後書',
+        '提前':'提摩太前書','提後':'提摩太後書','多':'提多書','門':'腓利門書','來':'希伯來書',
+        '雅':'雅各書','彼前':'彼得前書','彼後':'彼得後書','約一':'約翰一書','約二':'約翰二書',
+        '約三':'約翰三書','猶':'猶大書','啟':'啟示錄'
+    };
+
+    // ========== 解析中文經文 ==========
+    function parseLine(line) {
+        let bookAbbr = '';
+        let rest = line;
+        const twoCharBooks = ['撒上','撒下','王上','王下','代上','代下','林前','林後','帖前','帖後','提前','提後','約一','約二','約三','彼前','彼後'];
+        for (let two of twoCharBooks) {
+            if (line.startsWith(two)) {
+                bookAbbr = two;
+                rest = line.slice(two.length);
+                break;
+            }
+        }
+        if (!bookAbbr) {
+            const match = line.match(/^([\u4e00-\u9fa5]+)(\d+):(\d+)\s+(.*)/);
+            if (!match) return null;
+            bookAbbr = match[1];
+            rest = line;
+        }
+        const regex = new RegExp(`^${bookAbbr}(\\d+):(\\d+)\\s+(.*)`);
+        const match = rest.match(regex);
+        if (!match) return null;
+        return {
+            book: bookAbbr,
+            chapter: parseInt(match[1]),
+            verse: parseInt(match[2]),
+            text: match[3]
+        };
+    }
+
+    function buildChineseIndex() {
+        parsedVerses = [];
+        booksMap.clear();
+        bookChaptersMap.clear();
+        for (let line of bibleArray) {
+            const v = parseLine(line);
+            if (!v) continue;
+            parsedVerses.push(v);
+            if (!booksMap.has(v.book)) booksMap.set(v.book, fullNameMap[v.book] || v.book);
+            if (!bookChaptersMap.has(v.book)) bookChaptersMap.set(v.book, new Set());
+            bookChaptersMap.get(v.book).add(v.chapter);
+        }
+        for (let [book, set] of bookChaptersMap.entries()) {
+            bookChaptersMap.set(book, Array.from(set).sort((a,b)=>a-b));
+        }
+        updateBookSelect();
+        document.getElementById('bibleStatus').innerHTML = '✅ 中文聖經載入成功，共 ' + parsedVerses.length + ' 節';
+        document.getElementById('bibleStatus').className = 'success-msg';
+    }
+
+    function updateBookSelect() {
+        const select = document.getElementById('bookSelect');
+        if (!select) return;
+        const available = new Set(booksMap.keys());
+        const ordered = canonicalOrder.filter(b => available.has(b));
+        const extra = Array.from(available).filter(b => !canonicalOrder.includes(b)).sort();
+        const allBooks = [...ordered, ...extra];
+        select.innerHTML = '<option value="">-- 請選擇書卷 --</option>';
+        for (let b of allBooks) {
+            select.innerHTML += `<option value="${b}">${b} ${booksMap.get(b)}</option>`;
+        }
+        if (allBooks.length) select.value = allBooks[0];
+        updateChapterSelect();
+    }
+
+    function updateChapterSelect() {
+        const book = document.getElementById('bookSelect').value;
+        const chapSelect = document.getElementById('chapterSelect');
+        if (!book || !bookChaptersMap.has(book)) {
+            chapSelect.innerHTML = '<option>無章節</option>';
+            return;
+        }
+        const chapters = bookChaptersMap.get(book);
+        chapSelect.innerHTML = '';
+        for (let ch of chapters) {
+            chapSelect.innerHTML += `<option value="${ch}">第 ${ch} 章</option>`;
+        }
+        if (chapters.length) chapSelect.value = chapters[0];
+    }
+
+    function getChineseChapter(book, chapter) {
+        return parsedVerses.filter(v => v.book === book && v.chapter === chapter).sort((a,b)=>a.verse-b.verse);
+    }
+
+    // ========== 英文 API.Bible ==========
+    // 將中文書名轉為 API.Bible 使用的英文書名縮寫
+    function chineseToEnglishBook(chineseFullName) {
+        const map = {
+            '創世記':'GEN','出埃及記':'EXO','利未記':'LEV','民數記':'NUM','申命記':'DEUT',
+            '約書亞記':'JOSH','士師記':'JDG','路得記':'RUTH','撒母耳記上':'1SA','撒母耳記下':'2SA',
+            '列王紀上':'1KI','列王紀下':'2KI','歷代志上':'1CH','歷代志下':'2CH','以斯拉記':'EZRA',
+            '尼希米記':'NEH','以斯帖記':'EST','約伯記':'JOB','詩篇':'PS','箴言':'PROV',
+            '傳道書':'ECC','雅歌':'SNG','以賽亞書':'ISA','耶利米書':'JER','耶利米哀歌':'LAM',
+            '以西結書':'EZK','但以理書':'DAN','何西阿書':'HOS','約珥書':'JOEL','阿摩司書':'AMOS',
+            '俄巴底亞書':'OBAD','約拿書':'JONAH','彌迦書':'MIC','那鴻書':'NAM','哈巴谷書':'HAB',
+            '西番雅書':'ZEP','哈該書':'HAG','撒迦利亞書':'ZEC','瑪拉基書':'MAL',
+            '馬太福音':'MATT','馬可福音':'MARK','路加福音':'LUKE','約翰福音':'JOHN','使徒行傳':'ACTS',
+            '羅馬書':'ROM','哥林多前書':'1COR','哥林多後書':'2COR','加拉太書':'GAL','以弗所書':'EPH',
+            '腓立比書':'PHP','歌羅西書':'COL','帖撒羅尼迦前書':'1THESS','帖撒羅尼迦後書':'2THESS',
+            '提摩太前書':'1TIM','提摩太後書':'2TIM','提多書':'TITUS','腓利門書':'PHLM','希伯來書':'HEB',
+            '雅各書':'JAS','彼得前書':'1PET','彼得後書':'2PET','約翰一書':'1JN','約翰二書':'2JN',
+            '約翰三書':'3JN','猶大書':'JUDE','啟示錄':'REV'
+        };
+        return map[chineseFullName];
+    }
+
+    async function fetchEnglishVerses(bookAbbr, chapter) {
+        if (!bibleApiKey) {
+            console.warn('無 API Key');
+            return { error: '未設定 API.Bible Key' };
+        }
+        const chineseFull = booksMap.get(bookAbbr);
+        const engBook = chineseToEnglishBook(chineseFull);
+        if (!engBook) {
+            return { error: `找不到英文書名對應: ${chineseFull}` };
+        }
+        const passageId = `${engBook}.${chapter}`;
+        const url = `https://api.scripture.api.bible/v1/bibles/${selectedBibleId}/passages/${passageId}?content-type=text`;
+        try {
+            const response = await fetch(url, {
+                headers: { 'api-key': bibleApiKey }
+            });
+            if (!response.ok) {
+                let errText = await response.text();
+                return { error: `HTTP ${response.status}: ${errText.substring(0, 200)}` };
+            }
+            const data = await response.json();
+            let content = data.data.content;
+            content = content.replace(/<[^>]*>/g, '');
+            const lines = content.split('\n');
+            const verses = {};
+            for (let line of lines) {
+                const match = line.match(/^(\d+)\s+(.*)/);
+                if (match) verses[parseInt(match[1])] = match[2];
+            }
+            return verses;
+        } catch (err) {
+            return { error: err.message };
+        }
+    }
+
+    async function displayChapter(book, chapter) {
+        currentBook = book;
+        currentChapter = chapter;
+        const chineseVerses = getChineseChapter(book, chapter);
+        const title = `${booksMap.get(book)} 第 ${chapter} 章`;
+        document.getElementById('chapterTitle').innerHTML = `📖 ${title}`;
+
+        const mode = document.getElementById('displayMode').value;
+        if (mode === 'chinese') {
+            let html = '';
+            for (let v of chineseVerses) {
+                html += `<div class="verse-card"><div class="verse-ref">${v.book}${v.chapter}:${v.verse}</div><div class="verse-text">${v.text}</div></div>`;
+            }
+            document.getElementById('versesContainer').innerHTML = html || '無經文';
+            loadNoteForChapter(book, chapter);
+            return;
+        }
+
+        // 需要英文
+        document.getElementById('versesContainer').innerHTML = '<div class="loading">⏳ 正在載入英文經文...</div>';
+        let engData = null;
+        if (bibleApiKey) {
+            engData = await fetchEnglishVerses(book, chapter);
+        } else {
+            engData = { error: '未設定 API.Bible Key，請在上方輸入並儲存' };
+        }
+
+        let html = '';
+        for (let v of chineseVerses) {
+            let engText = '';
+            if (engData && !engData.error && engData[v.verse]) engText = engData[v.verse];
+            else if (engData && engData.error) engText = `[錯誤: ${engData.error}]`;
+
+            if (mode === 'both') {
+                html += `<div class="verse-card">
+                            <div class="verse-ref">${v.book}${v.chapter}:${v.verse}</div>
+                            <div class="verse-text">${v.text}</div>
+                            <div class="english-text">📘 ${engText || '(無英文)'}</div>
+                        </div>`;
+            } else if (mode === 'english') {
+                if (engText && !engData.error) {
+                    html += `<div class="verse-card"><div class="verse-ref">${v.book}${v.chapter}:${v.verse}</div><div class="verse-text">${engText}</div></div>`;
+                }
+            }
+        }
+        if (mode === 'english' && engData && engData.error) {
+            html = `<div class="error-msg">⚠️ 英文載入失敗：${engData.error}</div>`;
+        } else if (mode === 'english' && (!engData || Object.keys(engData).length === 0)) {
+            html = '<div class="error-msg">⚠️ 無英文經文資料，請確認 API Key 或譯本 ID</div>';
+        }
+        document.getElementById('versesContainer').innerHTML = html;
+        loadNoteForChapter(book, chapter);
+    }
+
+    // 測試 API 連線
+    async function testApiConnection() {
+        const testBook = '創世記';
+        const engBook = chineseToEnglishBook(testBook);
+        if (!engBook) {
+            alert('書名轉換失敗');
+            return;
+        }
+        const url = `https://api.scripture.api.bible/v1/bibles/${selectedBibleId}/passages/${engBook}.1?content-type=text`;
+        try {
+            const response = await fetch(url, {
+                headers: { 'api-key': bibleApiKey }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                alert(`✅ API 連線成功！取得經文長度 ${data.data.content.length} 字元`);
+            } else {
+                const err = await response.text();
+                alert(`❌ API 錯誤 (${response.status}): ${err.substring(0, 300)}`);
+            }
+        } catch (e) {
+            alert(`❌ 網路錯誤: ${e.message}`);
+        }
+    }
+
+    // ========== 隨機金句 ==========
+    function randomVerse() {
+        if (!parsedVerses.length) return;
+        const rand = Math.floor(Math.random() * parsedVerses.length);
+        const v = parsedVerses[rand];
+        displayChapter(v.book, v.chapter);
+    }
+
+    // ========== 搜尋 ==========
+    function searchVerses(keyword) {
+        const lower = keyword.toLowerCase();
+        return parsedVerses.filter(v => v.text.toLowerCase().includes(lower));
+    }
+    function showSearchResults(keyword) {
+        const results = searchVerses(keyword);
+        if (!results.length) {
+            document.getElementById('versesContainer').innerHTML = `<div class="error-msg">🔍 沒有找到「${escapeHtml(keyword)}」</div>`;
+            document.getElementById('chapterTitle').innerHTML = `🔎 搜尋結果`;
+            return;
+        }
+        document.getElementById('chapterTitle').innerHTML = `🔎 「${keyword}」 共 ${results.length} 節`;
+        let html = '';
+        for (let v of results.slice(0, 50)) {
+            html += `<div class="verse-card" data-book="${v.book}" data-chapter="${v.chapter}" style="cursor:pointer;">
+                        <div class="verse-ref">${v.book}${v.chapter}:${v.verse}</div>
+                        <div class="verse-text">${v.text}</div>
+                    </div>`;
+        }
+        document.getElementById('versesContainer').innerHTML = html;
+        document.querySelectorAll('#versesContainer .verse-card[data-book]').forEach(card => {
+            card.addEventListener('click', () => {
+                const b = card.getAttribute('data-book');
+                const c = parseInt(card.getAttribute('data-chapter'));
+                if (b && c) {
+                    document.getElementById('bookSelect').value = b;
+                    updateChapterSelect();
+                    setTimeout(() => {
+                        document.getElementById('chapterSelect').value = c;
+                        displayChapter(b, c);
+                    }, 20);
+                }
+            });
+        });
+    }
+
+    // ========== 筆記 ==========
+    function loadNoteForChapter(book, chapter) {
+        const key = `note_${book}_${chapter}`;
+        const saved = localStorage.getItem(key);
+        document.getElementById('noteText').value = saved || '';
+        showNotesList(book, chapter);
+    }
+    function saveCurrentNote() {
+        if (!currentBook || !currentChapter) return;
+        const note = document.getElementById('noteText').value;
+        localStorage.setItem(`note_${currentBook}_${currentChapter}`, note);
+        showNotesList(currentBook, currentChapter);
+    }
+    function showNotesList(book, chapter) {
+        const key = `note_${book}_${chapter}`;
+        const note = localStorage.getItem(key) || '';
+        const container = document.getElementById('notesList');
+        if (!note.trim()) {
+            container.innerHTML = '<div class="note-item">尚無筆記</div>';
+            return;
+        }
+        container.innerHTML = `<div class="note-item">📌 筆記：${note.substring(0, 80)} <button class="delete-note" data-key="${key}">🗑️</button></div>`;
+        const del = container.querySelector('.delete-note');
+        if (del) del.addEventListener('click', () => {
+            localStorage.removeItem(key);
+            loadNoteForChapter(book, chapter);
+        });
+    }
+
+    // ========== DeepSeek AI ==========
+    async function askAI() {
+        const question = document.getElementById('aiQuestion').value.trim();
+        if (!question) return alert('請輸入問題');
+        if (!deepseekApiKey) return alert('請先設定 DeepSeek API Key');
+        const answerDiv = document.getElementById('aiAnswer');
+        answerDiv.style.display = 'block';
+        answerDiv.innerHTML = '🤔 思考中...';
+        try {
+            const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+                body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [{ role: 'system', content: '你是聖經助手。' }, { role: 'user', content: question }],
+                    temperature: 0.7,
+                    max_tokens: 800
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = await res.json();
+            answerDiv.innerHTML = `<strong>🤖 回答：</strong><br>${data.choices[0].message.content.replace(/\n/g, '<br>')}`;
+        } catch (e) {
+            answerDiv.innerHTML = `❌ 錯誤：${e.message}`;
+        }
+    }
+
+    // ========== 儲存設定 ==========
+    function saveBibleKey() {
+        const key = document.getElementById('bibleApiKey').value.trim();
+        if (key) {
+            localStorage.setItem('bible_api_key', key);
+            bibleApiKey = key;
+            document.getElementById('bibleApiStatus').innerHTML = '✅ Key 已儲存';
+        } else {
+            localStorage.removeItem('bible_api_key');
+            bibleApiKey = '';
+            document.getElementById('bibleApiStatus').innerHTML = '⚠️ Key 已清除';
+        }
+    }
+    function saveDeepSeekKey() {
+        const key = document.getElementById('deepseekApiKey').value.trim();
+        if (key) {
+            localStorage.setItem('deepseek_api_key', key);
+            deepseekApiKey = key;
+        } else localStorage.removeItem('deepseek_api_key');
+    }
+    function saveDisplayMode() {
+        const mode = document.getElementById('displayMode').value;
+        localStorage.setItem('display_mode', mode);
+        displayMode = mode;
+        if (currentBook && currentChapter) displayChapter(currentBook, currentChapter);
+    }
+    function saveEnglishVersion() {
+        const ver = document.getElementById('englishVersionSelect').value;
+        localStorage.setItem('selected_bible_id', ver);
+        selectedBibleId = ver;
+        if (currentBook && currentChapter) displayChapter(currentBook, currentChapter);
+    }
+
+    // ========== 載入 bibleText.js ==========
+    function loadBibleScript() {
+        return new Promise((resolve, reject) => {
+            if (typeof bibleText !== 'undefined' && Array.isArray(bibleText)) {
+                bibleArray = bibleText;
+                buildChineseIndex();
+                resolve(true);
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = './bibleText.js';
+            script.onload = () => {
+                if (typeof bibleText !== 'undefined') {
+                    bibleArray = bibleText;
+                    buildChineseIndex();
+                    resolve(true);
+                } else {
+                    reject('bibleText 全域變數不存在');
+                }
+            };
+            script.onerror = () => reject('無法載入 bibleText.js，請確認檔案存在');
+            document.head.appendChild(script);
+        });
+    }
+
+    function initUI() {
+        document.getElementById('bibleApiKey').value = bibleApiKey;
+        document.getElementById('deepseekApiKey').value = deepseekApiKey;
+        document.getElementById('englishVersionSelect').value = selectedBibleId;
+        document.getElementById('displayMode').value = displayMode;
+        if (bibleApiKey) document.getElementById('bibleApiStatus').innerHTML = '✅ Key 已載入';
+        else document.getElementById('bibleApiStatus').innerHTML = '⚠️ 未設定 Key';
+    }
+
+    function bindEvents() {
+        document.getElementById('bookSelect').addEventListener('change', () => updateChapterSelect());
+        document.getElementById('loadChapterBtn').addEventListener('click', () => {
+            const book = document.getElementById('bookSelect').value;
+            const chap = parseInt(document.getElementById('chapterSelect').value);
+            if (book && chap) displayChapter(book, chap);
+        });
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const kw = document.getElementById('searchInput').value.trim();
+            if (kw) showSearchResults(kw);
+            else alert('請輸入關鍵字');
+        });
+        document.getElementById('randomBtn').addEventListener('click', randomVerse);
+        document.getElementById('saveNoteBtn').addEventListener('click', saveCurrentNote);
+        document.getElementById('saveBibleApiKeyBtn').addEventListener('click', saveBibleKey);
+        document.getElementById('saveDeepSeekKeyBtn').addEventListener('click', saveDeepSeekKey);
+        document.getElementById('displayMode').addEventListener('change', saveDisplayMode);
+        document.getElementById('englishVersionSelect').addEventListener('change', saveEnglishVersion);
+        document.getElementById('askAiBtn').addEventListener('click', askAI);
+        document.getElementById('testApiBtn').addEventListener('click', testApiConnection);
+    }
+
+    (async function() {
+        initUI();
+        bindEvents();
+        try {
+            await loadBibleScript();
+        } catch (err) {
+            document.getElementById('bibleStatus').innerHTML = `❌ 載入失敗：${err}。請確認 bibleText.js 與本 HTML 在同一目錄。`;
+            document.getElementById('bibleStatus').className = 'error-msg';
+            // 加入備用資料讓介面可操作
+            bibleArray = ['創1:1 起初神創造天地。'];
+            buildChineseIndex();
+        }
+        if (Array.from(booksMap.keys()).length) {
+            const first = canonicalOrder.find(b => booksMap.has(b)) || Array.from(booksMap.keys())[0];
+            const firstChap = bookChaptersMap.get(first)?.[0] || 1;
+            displayChapter(first, firstChap);
+        }
+    })();
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+</script>
+</body>
+</html>
